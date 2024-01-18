@@ -20,13 +20,15 @@ use App\Models\Admin\AdminNotification;
 use Illuminate\Support\Facades\DB;
 use Jenssegers\Agent\Agent;
 use App\Models\Admin\BasicSettings;
+use App\Models\Merchants\MerchantWallet;
 use App\Notifications\User\Withdraw\WithdrawMail;
+use App\Traits\PaymentGateway\FlutterwaveTrait;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 class MoneyOutController extends Controller
 {
-    use ControlDynamicInputFields;
+    use ControlDynamicInputFields, FlutterwaveTrait;
     public function index()
     {
         $page_title = __("Withdraw Money");
@@ -37,8 +39,150 @@ class MoneyOutController extends Controller
             $gateway->where('status', 1);
         })->get();
         $transactions = Transaction::auth()->moneyOut()->orderByDesc("id")->latest()->take(10)->get();
-        return view('user.sections.money-out.index',compact('page_title','payment_gateways','transactions','user_wallets'));
+        $allBanks = getFlutterwaveBanks('NG');
+        return view('user.sections.money-out.index',compact('page_title','payment_gateways','transactions','user_wallets','allBanks'));
     }
+    
+    public function placeTransfer(Request $request){
+        $request->validate([
+           'amount' => 'required|numeric|gt:0',
+           'gateway' => 'required',
+           'pin' => 'required|digits:4',
+           'bank_name' => 'required|numeric|gt:0',
+           'account_number' => 'required',
+           'narration' => 'required|string|min:5'
+       ]);
+       $basic_setting = BasicSettings::first();
+       $user = auth()->user();
+       if($user->trx != $request->pin){
+            return redirect()->back()->with(['error' => ['Incorrect Transaction PIN.']]);
+       }
+       if($basic_setting->kyc_verification){
+           if( $user->kyc_verified == 0){
+               return redirect()->route('user.profile.index')->with(['error' => ['Please submit kyc information']]);
+           }elseif($user->kyc_verified == 2){
+               return redirect()->route('user.profile.index')->with(['error' => ['Please wait before admin approved your kyc information']]);
+           }elseif($user->kyc_verified == 3){
+               return redirect()->route('user.profile.index')->with(['error' => ['Admin rejected your kyc information, Please re-submit again']]);
+           }
+       }
+       
+       $userWallet = UserWallet::where('user_id',$user->id)->where('status',1)->first();
+       $gate =PaymentGatewayCurrency::whereHas('gateway', function ($gateway) {
+           $gateway->where('slug', PaymentGatewayConst::money_out_slug());
+           $gateway->where('status', 1);
+       })->where('alias',$request->gateway)->first();
+       $baseCurrency = Currency::default();
+       if (!$gate) {
+           return back()->with(['error' => ['Invalid Gateway']]);
+       }
+       $amount = $request->amount;
+
+       $min_limit =  $gate->min_limit / $gate->rate;
+       $max_limit =  $gate->max_limit / $gate->rate;
+       if($amount < $min_limit || $amount > $max_limit) {
+           return back()->with(['error' => ['Please follow the transaction limit']]);
+       }
+       //gateway charge
+       $fixedCharge = $gate->fixed_charge;
+       $percent_charge =  (((($request->amount * $gate->rate)/ 100) * $gate->percent_charge));
+       $charge = $fixedCharge + $percent_charge;
+       $conversion_amount = $request->amount * $gate->rate;
+       $will_get = $conversion_amount -  $charge;
+
+       //base_cur_charge
+       $baseFixedCharge = $gate->fixed_charge *  $baseCurrency->rate;
+       $basePercent_charge = ($request->amount / 100) * $gate->percent_charge;
+       $base_total_charge = $baseFixedCharge + $basePercent_charge;
+       // $reduceAbleTotal = $amount + $base_total_charge;
+       $reduceAbleTotal = $amount;
+       if( $reduceAbleTotal > $userWallet->balance){
+           return back()->with(['error' => ['Insufficient Balance']]);
+       }
+       $data1['user_id']= $user->id;
+       $data1['gateway_name']= $gate->gateway->name;
+       $data1['gateway_type']= $gate->gateway->type;
+       $data1['wallet_id']= $userWallet->id;
+       $data1['trx_id']= 'MO'.getTrxNum();
+       $data1['amount'] =  $amount;
+       $data1['base_cur_charge'] = $base_total_charge;
+       $data1['base_cur_rate'] = $baseCurrency->rate;
+       $data1['gateway_id'] = $gate->gateway->id;
+       $data1['gateway_currency_id'] = $gate->id;
+       $data1['gateway_currency'] = strtoupper($gate->currency_code);
+       $data1['gateway_percent_charge'] = $percent_charge;
+       $data1['gateway_fixed_charge'] = $fixedCharge;
+       $data1['gateway_charge'] = $charge;
+       $data1['gateway_rate'] = $gate->rate;
+       $data1['conversion_amount'] = $conversion_amount;
+       $data1['will_get'] = $will_get;
+       $data1['payable'] = $reduceAbleTotal;
+       session()->put('moneyoutData', $data1);
+       $moneyOutData = (object) $data1;
+       //Get gateway
+       //$gateway = PaymentGateway::where('id', $moneyOutData->gateway_id)->first();
+       $gateway = $gate->gateway;
+       $credentials = $gateway->credentials;
+       $data = null;
+       $secret_key = getPaymentCredentials($credentials,'Secret key');
+       $base_url = getPaymentCredentials($credentials,'Base Url');
+       $callback_url = getPaymentCredentials($credentials,'Callback Url');
+       $ch = curl_init();
+       $url =  $base_url.'/transfers';
+       $reference = generateTransactionReference();
+       $data = [
+           "account_bank" => $request->bank_name,
+           "account_number" => $request->account_number,
+           "amount" => $will_get,
+           "narration" => "Withdraw from wallet",
+           "currency" =>$moneyOutData->gateway_currency,
+           "reference" => $reference,
+           "callback_url" => $callback_url,
+           "debit_currency" => $moneyOutData->gateway_currency
+       ];
+       $headers = [
+           'Authorization: Bearer '.$secret_key,
+           'Content-Type: application/json'
+       ];
+
+       curl_setopt($ch, CURLOPT_URL, $url);
+       curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+       curl_setopt($ch, CURLOPT_POST, true);
+       curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+       curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+       $response = curl_exec($ch);
+       if (curl_errno($ch)) {
+           return back()->with(['error' => [curl_error($ch)]]);
+       } else {
+           $result = json_decode($response,true);
+           if($result['status'] && $result['status'] == 'success'){
+               try{
+                   //send notifications
+                   $inserted_id = $this->insertRecordManual($moneyOutData,$gateway,$get_values = null);
+                   $this->insertChargesAutomatic($moneyOutData,$inserted_id);
+                   $this->insertDeviceManual($moneyOutData,$inserted_id);
+                   $nt = Transaction::find($inserted_id);
+                   $nt->ref = $reference;
+                   $nt->save();
+                   session()->forget('moneyoutData');
+                   if( $basic_setting->email_notification == true){
+                       $user->notify(new WithdrawMail($user,$moneyOutData));
+                   }
+                   return redirect()->route("user.money.out.index")->with(['success' => ['Withdraw money request is processing and would be completed soon. ']]);
+               }catch(Exception $e) {
+                   return back()->with(['error' => [$e->getMessage()]]);
+               }
+
+           }else{
+               return back()->with(['error' => [$result['message']]]);
+           }
+       }
+
+       curl_close($ch);
+        return back()->with(['error' => ["Invalid request,please try again later"]]);
+       
+   }
 
    public function paymentInsert(Request $request){
         $request->validate([
@@ -257,7 +401,13 @@ class MoneyOutController extends Controller
     $exist['data'] = (checkBankAccount($secret_key = null,$bank_account,$bank_code));
     return response( $exist);
    }
-
+    //validate account
+    function validateAccDetails(Request $request){
+        $bank_account = $request->number;
+        $bank_code = $request->bank;
+        $exist = (checkBankAccount($bank_account,$bank_code));
+        return response( $exist);
+    }
     public function insertRecordManual($moneyOutData,$gateway,$get_values) {
         if($moneyOutData->gateway_type == "AUTOMATIC"){
             $status = 1;
@@ -429,4 +579,47 @@ class MoneyOutController extends Controller
             throw new Exception(__("Something went wrong! Please try again."));
         }
     }
+     
+    //Flutterwave Callback
+    public function flutterWebhookNotification(Request $request){
+        $logFile = 'public/webhook_log.txt';
+        $logMessage = json_encode($request->all(), JSON_PRETTY_PRINT);
+        file_put_contents($logFile, $logMessage, FILE_APPEND);
+        
+        $input = $request->all();
+        $gateway = PaymentGateway::where('type',"AUTOMATIC")->where('alias','flutterwave-money-out')->first();
+        $d['gateway'] = $gateway;
+        $credentials = $this->getFlutterCredentials($d);
+        if($input['event.type'] == 'Transfer' && $input['event'] == 'transfer.completed'){
+            //verify trx
+            $ref = $input['data']['reference'];
+            $trx = Transaction::where('ref', $ref)->first();
+            if(!$trx) return ['status' => 'error'];
+            $trx;
+            if($input['data']['status'] == 'SUCCESSFUL'){
+                $trx->status = 1;
+                $trx->save();
+            }else{
+                if($trx->status != 4){
+                    $returnAmount = $trx->request_amount;
+                    if($trx->user_id != null) {
+                        $userWallet = UserWallet::where('user_id',$trx->user_id)->first();
+                        $userWallet->balance +=  $returnAmount;
+                        $userWallet->save();
+                    }else if($trx->merchant_id != null) {
+                        $userWallet = MerchantWallet::where('merchant_id',$trx->merchant_id)->first();
+                        $userWallet->balance +=  $returnAmount;
+                        $userWallet->save();
+                    }
+                }
+                $trx->status = 4;
+                $trx->save();
+                //refund
+                
+            }
+            return ['status' => 'success'];
+        }
+        return $request;
+    }
+    
 }

@@ -115,7 +115,10 @@ Route::prefix("user")->name("user.")->group(function(){
                 Route::get('crypto/address/{trx_id}','cryptoPaymentAddress')->name('crypto.address');
                 Route::post('crypto/confirm/{trx_id}','cryptoPaymentConfirm')->name('crypto.confirm');
             });
-
+            // Monnify
+            Route::any('monnify/success', 'monnifySuccess')->name('monnify.success');
+            //Monnify Virtual Accounts
+            Route::get('virtual-accounts','virtualAccounts')->name('monnify.virtual');
         });
     });
     //withdraw money
@@ -126,6 +129,10 @@ Route::prefix("user")->name("user.")->group(function(){
             Route::get('preview','preview')->name('preview');
             Route::post('confirm','confirmMoneyOut')->name('confirm');
 
+            //Place transfer
+            Route::post('place-transfer','placeTransfer')->name('transfer');
+            Route::post('validate-acc-details','validateAccDetails')->name('transfer.validate');
+            
             //check bank validation
             Route::post('check/flutterwave/bank','checkBanks')->name('check.flutterwave.bank');
             //automatic withdraw confirmed

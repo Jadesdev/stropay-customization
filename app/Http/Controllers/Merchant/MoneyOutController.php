@@ -37,8 +37,9 @@ class MoneyOutController extends Controller
             $gateway->where('slug', PaymentGatewayConst::money_out_slug());
             $gateway->where('status', 1);
         })->get();
+        $allBanks = getFlutterwaveBanks('NG');
         $transactions = Transaction::merchantAuth()->moneyOut()->orderByDesc("id")->latest()->take(10)->get();
-        return view('merchant.sections.withdraw.index',compact('page_title','payment_gateways','transactions','user_wallets'));
+        return view('merchant.sections.withdraw.index',compact('page_title','payment_gateways','transactions','user_wallets','allBanks'));
     }
 
    public function paymentInsert(Request $request){

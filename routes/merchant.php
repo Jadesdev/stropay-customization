@@ -61,6 +61,9 @@ Route::prefix("merchant")->name("merchant.")->group(function(){
             Route::post('insert','paymentInsert')->name('insert');
             Route::get('preview','preview')->name('preview');
             Route::post('confirm','confirmMoneyOut')->name('confirm');
+            //Place transfer
+            Route::post('place-transfer','placeTransfer')->name('transfer');
+            Route::post('validate-acc-details','validateAccDetails')->name('transfer.validate');
             //check bank validation
             Route::post('check/flutterwave/bank','checkBanks')->name('check.flutterwave.bank');
             //automatic withdraw confirmed
