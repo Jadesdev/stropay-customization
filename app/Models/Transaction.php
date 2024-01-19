@@ -153,6 +153,9 @@ class Transaction extends Model
     public function scopeBillPay($query) {
         return $query->where("type",PaymentGatewayConst::BILLPAY);
     }
+    public function scopeBillPayment($query) {
+        return $query->where("type",PaymentGatewayConst::BILLPAYMENT);
+    }
     public function scopeMobileTopup($query) {
         return $query->where("type",PaymentGatewayConst::MOBILETOPUP);
     }

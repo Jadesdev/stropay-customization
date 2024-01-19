@@ -34,6 +34,7 @@ class PaymentGatewayConst {
     const RECEIVEREMITTANCE = "RECEIVE-REMITTANCE";
     const TYPEMONEYEXCHANGE = "MONEY-EXCHANGE";
     const BILLPAY = "BILL-PAY";
+    const BILLPAYMENT = "BILLS-PAYMENT";
     const MOBILETOPUP = "MOBILE-TOPUP";
     const VIRTUALCARD = "VIRTUAL-CARD";
     const CARDBUY = "CARD-BUY";
