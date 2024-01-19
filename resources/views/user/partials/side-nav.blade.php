@@ -128,14 +128,20 @@
                         </li>
                         @endif
                     @endif
-                    @if(module_access('bill-pay',$module)->status)
+                    <li class="sidebar-menu-item">
+                        <a href="{{ setRoute('user.bills.index') }}">
+                            <i class="menu-icon fas fa-shopping-bag"></i>
+                            <span class="menu-title">{{ __("Bills Payment") }}</span>
+                        </a>
+                    </li>
+                    {{-- @if(module_access('bill-pay',$module)->status)
                     <li class="sidebar-menu-item">
                         <a href="{{ setRoute('user.bill.pay.index') }}">
                             <i class="menu-icon fas fa-shopping-bag"></i>
                             <span class="menu-title">{{ __("Bill Pay") }}</span>
                         </a>
                     </li>
-                    @endif
+                    @endif --}}
                     @if(module_access('mobile-top-up',$module)->status)
                     <li class="sidebar-menu-item">
                         <a href="{{ setRoute('user.mobile.topup.index') }}">
