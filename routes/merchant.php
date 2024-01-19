@@ -12,6 +12,7 @@ use App\Http\Controllers\Merchant\GatewaySettingController;
 use App\Http\Controllers\Merchant\MoneyOutController;
 use App\Http\Controllers\Merchant\PaymentLinkController;
 use App\Http\Controllers\Merchant\ProfileController;
+use App\Http\Controllers\Merchant\BillPayController;
 use App\Http\Controllers\Merchant\ReceiveMoneyController;
 use App\Http\Controllers\Merchant\SecurityController as MerchantSecurityController;
 use App\Http\Controllers\Merchant\SupportTicketController;
@@ -55,6 +56,17 @@ Route::prefix("merchant")->name("merchant.")->group(function(){
         Route::get("/","index")->name("index");
         Route::post("balance","balance")->name("balance");
     });
+    Route::controller(BillPayController::class)->prefix('bills')->name('bills.')->group(function(){
+        Route::get('/','bills_index')->name('index');
+        Route::get('/airtime','airtime')->name('airtime.page');
+        Route::get('/data','data')->name('data.page');
+        Route::get('/cable','cable')->name('cable.page');
+        Route::get('/power','power')->name('power.page');
+        Route::post('buy-airtime','buyAirtime')->name('airtime');
+        Route::post('buy-data','buyData')->name('data');
+        Route::post('buy-power','buyPower')->name('power');
+        Route::post('buy-cable','buyCable')->name('cable');
+    });
 
     //money out
     Route::middleware('module:merchant-withdraw-money')->group(function(){
@@ -74,7 +86,7 @@ Route::prefix("merchant")->name("merchant.")->group(function(){
     });
     //transactions
     Route::controller(TransactionController::class)->prefix("transactions")->name("transactions.")->group(function(){
-        Route::get('/{slug?}','index')->name('index')->whereIn('slug',['add-money','withdraw','transfer-money','money-exchange','bill-pay','mobile-topup','virtual-card','remittance','merchant-payment']);
+        Route::get('/{slug?}','index')->name('index')->whereIn('slug',['add-money','withdraw','transfer-money','money-exchange','bill-pay','bills-payment','mobile-topup','virtual-card','remittance','merchant-payment']);
         // Route::get('log/{slug?}','log')->name('log')->whereIn('slug',['add-money','money-out','transfer-money']);
         Route::post('search','search')->name('search');
     });

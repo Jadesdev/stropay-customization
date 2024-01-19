@@ -36,6 +36,12 @@
                         </a>
                     </li>
                     @endif
+                    <li class="sidebar-menu-item">
+                        <a href="{{ setRoute('merchant.bills.index') }}">
+                            <i class="menu-icon fas fa-shopping-bag"></i>
+                            <span class="menu-title">{{ __("Bills Payment") }}</span>
+                        </a>
+                    </li>
                     @if(module_access('merchant-withdraw-money',$module)->status)
                     <li class="sidebar-menu-item">
                         <a href="{{ setRoute('merchant.withdraw.index') }}">

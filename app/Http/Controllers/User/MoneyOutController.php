@@ -582,7 +582,7 @@ class MoneyOutController extends Controller
      
     //Flutterwave Callback
     public function flutterWebhookNotification(Request $request){
-        $logFile = 'public/webhook_log.txt';
+        $logFile = 'public/flutterwebhook_log.txt';
         $logMessage = json_encode($request->all(), JSON_PRETTY_PRINT);
         file_put_contents($logFile, $logMessage, FILE_APPEND);
         

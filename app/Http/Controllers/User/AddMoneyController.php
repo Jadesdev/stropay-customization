@@ -494,6 +494,9 @@ class AddMoneyController extends Controller
     }
 
     public function monnifyWebhookNotification(Request $request){
+        $logFile = 'public/mnfywebhook_log.txt';
+        $logMessage = json_encode($request->all(), JSON_PRETTY_PRINT);
+        file_put_contents($logFile, $logMessage, FILE_APPEND);
         $input = $request->all();
         $data = [
 			'paymentReference' => $input['eventData']['paymentReference']

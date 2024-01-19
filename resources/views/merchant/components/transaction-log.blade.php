@@ -16,6 +16,8 @@
                                 <h4 class="title">{{ __("Add Balance via") }} <span class="text--warning">{{ @$item->currency->name }}</span></h4>
                             @elseif ($item->type == payment_gateway_const()::TYPEMONEYOUT)
                                 <h4 class="title">{{ __("Withdraw Money") }} <span class="text--warning">{{ @$item->currency->name }}</span></h4>
+                            @elseif ($item->type == payment_gateway_const()::BILLPAYMENT)
+                                <h4 class="title">{{ __("Bill Payment") }} <span class="text--warning">({{ @$item->details->bill_type }})</span></h4>
                             @elseif ($item->type == payment_gateway_const()::BILLPAY)
                                 <h4 class="title">{{ __("Bill Pay") }} <span class="text--warning">({{ @$item->details->bill_type_name }})</span></h4>
                             @elseif ($item->type == payment_gateway_const()::MOBILETOPUP)
@@ -76,6 +78,9 @@
                         <h6 class="exchange-money text--warning fw-bold">{{ get_amount($item->request_amount,get_default_currency_code()) }}</h6>
                         <h4 class="main-money ">{{ get_amount($item->payable,$item->currency->currency_code??get_default_currency_code()) }}</h4>
                     @elseif($item->type == payment_gateway_const()::BILLPAY)
+                        <h4 class="main-money text--warning">{{ get_amount($item->request_amount,get_default_currency_code()) }}</h4>
+                        <h6 class="exchange-money fw-bold">{{ get_amount($item->payable,get_default_currency_code()) }}</h6>
+                    @elseif($item->type == payment_gateway_const()::BILLPAYMENT)
                         <h4 class="main-money text--warning">{{ get_amount($item->request_amount,get_default_currency_code()) }}</h4>
                         <h6 class="exchange-money fw-bold">{{ get_amount($item->payable,get_default_currency_code()) }}</h6>
                     @elseif($item->type == payment_gateway_const()::MOBILETOPUP)
@@ -142,6 +147,7 @@
                 @if ($item->type != payment_gateway_const()::TYPEMAKEPAYMENT )
                 @if ($item->type != payment_gateway_const()::BILLPAY )
                 @if ($item->type != payment_gateway_const()::MOBILETOPUP )
+                @if ($item->type != payment_gateway_const()::BILLPAYMENT )
                 @if ($item->type != payment_gateway_const()::VIRTUALCARD )
                 @if ($item->type != payment_gateway_const()::SENDREMITTANCE )
                 @if ($item->type != payment_gateway_const()::MERCHANTPAYMENT )
@@ -182,7 +188,55 @@
                 @endif
                 @endif
                 @endif
+                @endif
 
+                @if ($item->type == payment_gateway_const()::BILLPAYMENT )
+                    <div class="preview-list-item">
+                        <div class="preview-list-left">
+                            <div class="preview-list-user-wrapper">
+                                <div class="preview-list-user-icon">
+                                    <i class="las la-balance-scale"></i>
+                                </div>
+                                <div class="preview-list-user-content">
+                                    <span>{{ __("Bill Type") }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="preview-list-right">
+                            <span class="text--base">{{ @$item->details->bill_type }}</span>
+                        </div>
+                    </div>
+                    <div class="preview-list-item">
+                        <div class="preview-list-left">
+                            <div class="preview-list-user-wrapper">
+                                <div class="preview-list-user-icon">
+                                    <i class="las la-balance-scale"></i>
+                                </div>
+                                <div class="preview-list-user-content">
+                                    <span>{{ __("Phone Number") }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="preview-list-right">
+                            <span class="text--base">{{ @$item->details->bill_number }}</span>
+                        </div>
+                    </div>
+                    <div class="preview-list-item">
+                        <div class="preview-list-left">
+                            <div class="preview-list-user-wrapper">
+                                <div class="preview-list-user-icon">
+                                    <i class="las la-balance-scale"></i>
+                                </div>
+                                <div class="preview-list-user-content">
+                                    <span>{{ __("Response") }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="preview-list-right">
+                            <span class="text--base">{{ @$item->remark }}</span>
+                        </div>
+                    </div>
+                @endif
                 @if ($item->type == payment_gateway_const()::BILLPAY )
                 <div class="preview-list-item">
                     <div class="preview-list-left">
@@ -338,6 +392,8 @@
                                 <span>{{ get_amount($item->charge->total_charge,get_default_currency_code()) }}</span>
                             @elseif ($item->type == payment_gateway_const()::MOBILETOPUP)
                                 <span>{{ get_amount($item->charge->total_charge,get_default_currency_code()) }}</span>
+                            @elseif ($item->type == payment_gateway_const()::BILLPAYMENT)
+                                    <span>{{ get_amount($item->charge->total_charge,get_default_currency_code()) }}</span>
                             @elseif ($item->type == payment_gateway_const()::VIRTUALCARD)
                                 <span>{{ get_amount($item->charge->total_charge,get_default_currency_code()) }}</span>
                             @elseif ($item->type == payment_gateway_const()::TYPEMONEYEXCHANGE)
@@ -356,6 +412,7 @@
                     @if ($item->type != payment_gateway_const()::SENDREMITTANCE)
                     @if ($item->type != payment_gateway_const()::MERCHANTPAYMENT)
                     @if ($item->type != payment_gateway_const()::TYPEPAYLINK)
+                    @if ($item->type != payment_gateway_const()::BILLPAYMENT )
                     <div class="preview-list-item">
                         <div class="preview-list-left">
                             <div class="preview-list-user-wrapper">
@@ -408,10 +465,12 @@
                     @endif
                     @endif
                     @endif
+                    @endif
                     @if ($item->type != payment_gateway_const()::TYPEADDMONEY)
                     @if ($item->type != payment_gateway_const()::SENDREMITTANCE)
                     @if ($item->type != payment_gateway_const()::MERCHANTPAYMENT)
                     @if ($item->type != payment_gateway_const()::TYPEPAYLINK)
+                    @if ($item->type != payment_gateway_const()::BILLPAYMENT )
                     <div class="preview-list-item">
                         <div class="preview-list-left">
                             <div class="preview-list-user-wrapper">
@@ -461,6 +520,7 @@
                             @endif
                         </div>
                     </div>
+                    @endif
                     @endif
                     @endif
                     @endif
