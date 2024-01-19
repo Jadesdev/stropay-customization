@@ -156,6 +156,47 @@
                 </div>
             </div>
         </div>
+        <div class="col-lg-6 mb-30">
+            <div class="dash-payment-item-wrapper">
+                <div class="dash-payment-item active">
+                    <div class="dash-payment-title-area">
+                        <span class="dash-payment-badge"><i class="la la-bank"> </i> </span>
+                        <h5 class="title">{{__("Bank Accounts")}}</h5>
+                    </div>
+                    <div class="dash-payment-body">
+                        @if(Auth::user()->monnify_ref == null)
+                        <div class="dashboard-btn mb-2">
+                            <a href="{{ setRoute('user.add.money.monnify.virtual') }}" class="btn--base">{{__("Generate Accounts")}}</a>
+                        </div>
+                        @else
+                        <div class="preview-list-wrapper">
+                             @if ($banks !== null)
+                              @foreach ($banks as $key => $bank)
+                              <div class="preview-list-item">
+                                <div class="preview-list-left">
+                                    <div class="preview-list-user-wrapper">
+                                        <div class="preview-list-user-content">
+                                            <p>{{ __("Bank Name") }}: </p>
+                                            <p>{{ __("Account Name") }}: </p>
+                                            <p>{{ __("Account Number") }}:</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="preview-list-right">
+                                    <p><b>{{$bank->bankName}}</b></p>
+                                    <p><b>{{Auth::user()->username}}</b></p>
+                                    <p><b>{{$bank->accountNumber}}</b></p>
+                                </div>
+                            </div>      
+                              @endforeach        
+                            @endif
+                        </div>
+                        @endif
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <div class="dashboard-list-area mt-20">
         <div class="dashboard-header-wrapper">

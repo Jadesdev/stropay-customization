@@ -26,14 +26,16 @@ use App\Models\UserNotification;
 use App\Traits\PaymentGateway\FlutterwaveTrait;
 use App\Traits\PaymentGateway\SslcommerzTrait;
 use App\Traits\PaymentGateway\RazorTrait;
+use App\Traits\PaymentGateway\MonnifyTrait;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Str;
 use KingFlamez\Rave\Facades\Rave as Flutterwave;
 
 class AddMoneyController extends Controller
 {
-    use Stripe,Manual,FlutterwaveTrait,RazorTrait,SslcommerzTrait;
+    use Stripe,Manual,FlutterwaveTrait,RazorTrait,SslcommerzTrait, MonnifyTrait;
     public function index() {
         $page_title = __("Add Money");
         $user_wallets = UserWallet::auth()->get();
@@ -44,7 +46,9 @@ class AddMoneyController extends Controller
             $gateway->where('status', 1);
         })->get();
         $transactions = Transaction::auth()->addMoney()->latest()->take(10)->get();
-        return view('user.sections.add-money.index',compact("page_title","transactions","payment_gateways_currencies"));
+        $banks = auth()->user()->monnify_banks;
+        $banks = \json_decode($banks);
+        return view('user.sections.add-money.index',compact("page_title","transactions","payment_gateways_currencies","banks"));
     }
 
     public function submit(Request $request) {
@@ -92,7 +96,52 @@ class AddMoneyController extends Controller
         }
         return redirect()->route('user.add.money.index');
     }
-
+    
+    //Generate Bank accounts
+    public function virtualAccounts(){
+        $basic_setting = BasicSettings::first();
+        $user = auth()->user();
+        if($basic_setting->kyc_verification){
+            if( $user->kyc_verified == 0){
+                return redirect()->route('user.profile.index')->with(['error' => ['Please submit kyc information']]);
+            }elseif($user->kyc_verified == 2){
+                return redirect()->route('user.profile.index')->with(['error' => ['Please wait before admin approved your kyc information']]);
+            }elseif($user->kyc_verified == 3){
+                return redirect()->route('user.profile.index')->with(['error' => ['Admin rejected your kyc information, Please re-submit again']]);
+            }
+        }
+        $reference = $user['username'].Str::random(6);
+        $gateway = PaymentGateway::where('type',"AUTOMATIC")->where('alias','monnify')->first();
+        $d['gateway'] = $gateway;
+        $credentials = $this->getMonnifyCredentials($d);
+        //check if user has bank accounts
+        if($user->monnify_ref == null){
+            $formdata = [
+                'customerEmail' => $user['email'],
+                'customerName' => $user['firstname'],
+                'accountName' => $user['username'],
+                'accountReference' => $reference,
+                'currencyCode' => "NGN",
+                // "bvn" => "",
+                "contractCode" => $credentials->contract_code,
+                "getAllAvailableBanks" => true,
+                //"preferredBanks" => ["035","232","058"]
+            ];
+            $accounts = $this->createMonnifyAccounts($formdata, $credentials);
+            if($accounts['responseMessage'] == 'success'){
+                $banks = $accounts['responseBody']['accounts'];
+                $user->monnify_ref = $reference;
+                $user->monnify_banks = $banks;
+                $user->save();
+                return back()->with(['success' => ['Bank Account Numbers generated successfully.']]);
+            }else{
+                return back()->with(['error' => ['Unable to generate accounts. Please try again.']]);
+            }
+            
+        }else{
+            return back()->with(['error' =>['You already have Account Numbers generated.']]);
+        }
+    }
 
     public function manualPayment(){
         $tempData = Session::get('identifier');
@@ -137,7 +186,40 @@ class AddMoneyController extends Controller
             return redirect()->route('user.add.money.index')->with(['error' => [__("Transaction failed")]]);
         }
     }
+    //Monnify Success
+    public function monnifySuccess(Request $request)
+    {
+        $request_data = request()->all();
+        $tempData = $request['paymentReference'] ?? Session::get('identifier');
+        //verify payment status
+        $data = [
+			'paymentReference' => $tempData
+		] ;
+        $status = $this->verifyMonnifyTrx($data);
+        //if payment is successful
+        if ($status == 'PAID') {
 
+            $checkTempData = TemporaryData::where("type",'monnify')->where("identifier",$tempData)->first();
+
+            if(!$checkTempData) return redirect()->route('user.add.money.index')->with(['error' => ['Transaction Failed. Record didn\'t saved properly. Please try again.']]);
+
+            $checkTempData = $checkTempData->toArray();
+
+            try{
+               PaymentGatewayHelper::init($checkTempData)->type(PaymentGatewayConst::TYPEADDMONEY)->responseReceive('monnify');
+            }catch(Exception $e) {
+                return back()->with(['error' => [$e->getMessage()]]);
+            }
+            return redirect()->route("user.add.money.index")->with(['success' => ['Successfully added money']]);
+
+        }
+        elseif ($status ==  'cancelled'){
+            return redirect()->route('user.add.money.index')->with(['error' => ['Add money cancelled']]);
+        }
+        else{
+            return redirect()->route('user.add.money.index')->with(['error' => ['Transaction failed']]);
+        }
+    }
     public function razorPayment($trx_id){
         $identifier = $trx_id;
         $output = TemporaryData::where('identifier', $identifier)->first();

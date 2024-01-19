@@ -55,6 +55,7 @@ class PaymentGatewayConst {
     const MANUA_GATEWAY = 'manual';
     const FLUTTER_WAVE = 'flutterwave';
     const RAZORPAY = 'razorpay';
+    const MONNIFY = 'monnify';
     const PAGADITO = 'pagadito';
     const SSLCOMMERZ = 'sslcommerz';
     const COINGATE = 'coingate';
@@ -102,6 +103,7 @@ class PaymentGatewayConst {
             self::PAGADITO => 'pagaditoInit',
             self::SSLCOMMERZ => 'sslcommerzInit',
             self::COINGATE  => 'coingateInit',
+            self::MONNIFY => 'monnifyInit',
             self::TATUM         => 'tatumInit'
         ];
 

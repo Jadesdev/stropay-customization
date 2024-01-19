@@ -21,12 +21,13 @@ use App\Traits\PaymentGateway\RazorTrait;
 use App\Traits\PaymentGateway\PagaditoTrait;
 use App\Traits\PaymentGateway\SslcommerzTrait;
 use App\Traits\PaymentGateway\CoinGate;
+use App\Traits\PaymentGateway\MonnifyTrait;
 use Illuminate\Support\Facades\Route;
 use App\Traits\PaymentGateway\Tatum;
 
 class PaymentGateway {
 
-    use Paypal,Stripe,Manual,FlutterwaveTrait,RazorTrait,PagaditoTrait,SslcommerzTrait,CoinGate,Tatum;
+    use Paypal,Stripe,Manual,FlutterwaveTrait,RazorTrait,PagaditoTrait,SslcommerzTrait,CoinGate,Tatum, MonnifyTrait;
 
     protected $request_data;
     protected $output;
@@ -291,6 +292,10 @@ class PaymentGateway {
             if(method_exists(TATUM::class,$method_name)) {
                 return $this->$method_name($this->output);
             }
+        }elseif($type == 'monnify'){
+            if(method_exists(MonnifyTrait::class,$method_name)) {
+                return $this->$method_name($this->output);
+            }        
         }else{
             if(method_exists(Paypal::class,$method_name)) {
                 return $this->$method_name($this->output);
