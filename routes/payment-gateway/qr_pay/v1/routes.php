@@ -3,6 +3,7 @@
 use App\Http\Controllers\PaymentGateway\QrPay\v1\AuthenticationController;
 use App\Http\Controllers\PaymentGateway\QrPay\v1\PaymentController;
 use App\Http\Controllers\PaymentGateway\QrPay\v1\UserAuthenticationController;
+use App\Http\Controllers\Merchant\ApiBillPayController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -74,7 +75,21 @@ Route::prefix('pay')->name('qrpay.pay.')->group(function(){
 
 });
 
+// Bills API
+Route::prefix('bills/api/v1')->controller(ApiBillPayController::class)->name('qrpay.bills.')->group(function(){
+    Route::post('/airtime', 'buyAirtime')->name('airtime');
+    Route::post('/data','buyData')->name('data');
+    Route::post('/power','buyPower')->name('power');
+    Route::post('/cable','buyCable')->name('cable');
+    // Get plans and ID
+    Route::get('/networks', 'networks')->name('networks');
+    Route::get('/data/plans', 'data_plans')->name('data.plans');
+    Route::get('/cables', 'cables')->name('cables');
+    Route::get('/cable/plans', 'cable_plans')->name('cables.plans');
+    Route::get('/powers', 'powers')->name('powers');
 
+
+});
 Route::get('success',function(Request $request) {
     dd($request->all());
 });

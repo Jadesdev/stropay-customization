@@ -17,7 +17,7 @@ use App\Models\Merchants\DeveloperApiCredential;
 class AuthenticationController extends Controller
 {
 
-    protected $access_token_expire_time = 600; // SECOND
+    protected $access_token_expire_time = 60000000; // SECOND
 
     public function generateToken(Request $request) {
         $validator = Validator::make($request->all(),[
