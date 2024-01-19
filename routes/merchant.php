@@ -34,6 +34,8 @@ Route::prefix("merchant")->name("merchant.")->group(function(){
     Route::middleware('module:merchant-receive-money')->group(function(){
         Route::controller(ReceiveMoneyController::class)->prefix('receive-money')->name('receive.money.')->group(function(){
             Route::get('/','index')->name('index');
+            //Monnify Virtual Accounts
+            Route::get('virtual-accounts','virtualAccounts')->name('monnify.virtual');
         });
     });
      //Pay Link
