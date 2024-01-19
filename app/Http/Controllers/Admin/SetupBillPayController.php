@@ -24,6 +24,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use App\Models\{
+    DataBundle, Network, Decoder,Electricity,CablePlan
+};
 use Maatwebsite\Excel\Facades\Excel;
 
 class SetupBillPayController extends Controller
@@ -160,6 +163,172 @@ class SetupBillPayController extends Controller
                 'allCategory',
             ));
         }
+    //Bills Payment
+    function manageAirtime(){
+        $networks = Network::whereStatus(1)->get();
+        $page_title = "Airtime Networks";
+        
+        return view('admin.sections.bills.airtime',compact('page_title',
+                'networks'
+            ));
+    }
+    function update_airtime(Request $request, $id){
+        $request->validate([
+            'minimum' => 'required|string|min:2'
+        ]);
+        $network = Network::findorFail($id);
+        $network->minimum = $request->minimum;
+        $network->code = $request->code;
+        $network->airtime = $request->airtime;
+        $network->save();
+        return back()->with(['success' => ['Airtime Network Updated Successfully!']]);
+    }
+    //Dataplans
+    function manageDataplans(){
+            $networks = Network::whereStatus(1)->get();
+        $page_title = "Manage Dataplans";
+        $dataplans = DataBundle::orderBy('network_id','asc')->paginate(20);
+        return view('admin.sections.bills.dataplan',compact('page_title',
+                'dataplans','networks'
+            ));
+    }
+    function dataplanStore(Request $request){
+        $request->validate([
+            'network_id' => 'required',
+            'name' => 'required|string',
+            'price' => 'required|numeric',
+            'code' => 'required|string'
+        ]);
+        $dataplan = new DataBundle();
+        $dataplan->name = $request->name;
+        $dataplan->network_id = $request->network_id;
+        $dataplan->service = $request->service;
+        $dataplan->price = $request->price;
+        $dataplan->status = 1;
+        $dataplan->code = $request->code;
+        $dataplan->save();
+        return back()->with(['success' => ['Dataplan Added Successfully!']]);
+    }
+    
+    function dataplanUpdate(Request $request, $id){
+        $request->validate([
+            'network_id' => 'required',
+            'name' => 'required|string',
+            'price' => 'required|numeric',
+            'code' => 'required|string'
+        ]);
+        $dataplan = DataBundle::findorFail($id);
+        $dataplan->name = $request->name;
+        $dataplan->price = $request->price;
+        $dataplan->network_id = $request->network_id;
+        $dataplan->status = $request->status;
+        $dataplan->service = $request->service;
+        $dataplan->code = $request->code;
+        $dataplan->save();
+        return redirect()->back()->with(['success' => ['Plan Updated Successfully!']]);
+    }
+    
+    function dataplanDelete($id){
+        $data = DataBundle::findorFail($id);
+        $data->delete();
+        return redirect()->back()->with(['success' => ['Plan Deleted Successfully!']]);
+    }
+    
+    //Cable
+    function manageCable(){
+        $page_title = "Manage Cable Plans";
+        $decoder = Decoder::whereStatus(1)->get();
+        $plans = CablePlan::orderBy('decoder_id','asc')->paginate(30);
+        
+        return view('admin.sections.bills.cable',compact('page_title',
+                'plans','decoder'
+            ));
+    }
+    function cableStore(Request $request){
+        $request->validate([
+            'decoder_id' => 'required',
+            'name' => 'required|string',
+            'price' => 'required|numeric',
+            'code' => 'required|string'
+        ]);
+        $dataplan = new CablePlan();
+        $dataplan->name = $request->name;
+        $dataplan->decoder_id = $request->decoder_id;
+        $dataplan->price = $request->price;
+        $dataplan->status = 1;
+        $dataplan->code = $request->code;
+        $dataplan->save();
+        return back()->with(['success' => ['Cable Added Successfully!']]);
+    }
+    function cableUpdate(Request $request, $id){
+        $request->validate([
+            'decoder_id' => 'required',
+            'name' => 'required|string',
+            'price' => 'required|numeric',
+            'code' => 'required|string'
+        ]);
+        $dataplan = CablePlan::findorFail($id);
+        $dataplan->name = $request->name;
+        $dataplan->decoder_id = $request->decoder_id;
+        $dataplan->price = $request->price;
+        $dataplan->status = $request->status;
+        $dataplan->code = $request->code;
+        $dataplan->save();
+        return redirect()->back()->with(['success' => ['Plan Updated Successfully!']]);
+    }
+    
+    function cableDelete($id){
+        $data = CablePlan::findorFail($id);
+        $data->delete();
+        return redirect()->back()->with(['success' => ['Plan Deleted Successfully!']]);
+    }
+    
+    //Power
+    function managePower(){
+        $page_title = "Electricity Plans";
+        $powers = Electricity::all();
+        return view('admin.sections.bills.power',compact('page_title',
+                'powers'
+            ));
+    }
+    function powerStore(Request $request){
+        $request->validate([
+            'minimum' => 'required',
+            'name' => 'required|string',
+            'fee' => 'required|numeric',
+            'code' => 'required|string'
+        ]);
+        $dataplan = new Electricity();
+        $dataplan->name = $request->name;
+        $dataplan->minimum = $request->minimum;
+        $dataplan->fee = $request->fee;
+        $dataplan->status = 1;
+        $dataplan->code = $request->code;
+        $dataplan->save();
+        return back()->with(['success' => ['Disco Added Successfully!']]);
+    }
+    function powerUpdate(Request $request, $id){
+        $request->validate([
+            'status' => 'required',
+            'name' => 'required|string',
+            'minimum' => 'required|numeric',
+            'code' => 'required|string'
+        ]);
+        $dataplan = Electricity::findorFail($id);
+        $dataplan->name = $request->name;
+        $dataplan->minimum = $request->minimum;
+        $dataplan->fee = $request->fee;
+        $dataplan->status = $request->status;
+        $dataplan->code = $request->code;
+        $dataplan->save();
+        return redirect()->back()->with(['success' => ['Plan Updated Successfully!']]);
+    }
+    
+    function powerDelete($id){
+        $data = Electricity::findorFail($id);
+        $data->delete();
+        return redirect()->back()->with(['success' => ['Plan Deleted Successfully!']]);
+    }
     //================================================category end=============================
     /**
      * Display a listing of the resource.

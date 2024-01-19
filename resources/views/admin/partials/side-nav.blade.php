@@ -57,6 +57,39 @@
                     ]
                 ])
 
+                {{-- Section Ramitance & Logs --}}
+                @include('admin.components.side-nav.link-group',[
+                    'group_title'       => "VTU Payment",
+                    'group_links'       => [
+                        'dropdown'      => [
+                            [
+                                'title'     => "VTU Settings",
+                                'icon'      => "menu-icon las la-wifi",
+                                'links'     => [
+                                    [
+                                        'title'     => "Airtime",
+                                        'route'     => "admin.bills.airtime",
+                                    ],
+                                    [
+                                        'title'     => "Data Sub",
+                                        'route'     => "admin.bills.dataplan",
+                                    ],
+                                    [
+                                        'title'     => "Cable Sub",
+                                        'route'     => "admin.bills.cable",
+                                    ],
+                                    [
+                                        'title'     => "Power Sub",
+                                        'route'     => "admin.bills.power",
+                                    ],
+                                    
+                                ],
+                            ],
+
+                        ],
+
+                    ]
+                ])
                 {{-- Section Transaction & Logs --}}
                 @include('admin.components.side-nav.link-group',[
                     'group_title'       => "Transactions & Logs",

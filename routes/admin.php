@@ -71,6 +71,31 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('delete','delete')->name('delete');
         Route::post('search','search')->name("search");
     });
+    //Bills payment 
+    Route::controller(SetupBillPayController::class)->prefix('bills')->name('bills.')->group(function () {
+        //manage Airtime
+        Route::post('/airtime/{id}' , 'update_airtime')->name('airtime.update');    //Edit Airtime
+        Route::get('/airtime' , 'manageAirtime')->name('airtime');
+        //API Settings
+        Route::get('/api-settings' , 'apiSettings')->name('settings');
+        
+        Route::get('data-plans', 'manageDataplans')->name('dataplan');
+        Route::post('dataplan/store', 'dataplanStore')->name('dataplan.store');
+        Route::post('dataplan/update/{id}', 'dataplanUpdate')->name('dataplan.update');
+        Route::get('dataplan/delete/{id}','dataplanDelete')->name('dataplan.delete');
+        Route::post('dataplan/search','dataplanSearch')->name("dataplan.search");
+        //cable
+        Route::get('cable-plans', 'manageCable')->name('cable');
+        Route::post('cable/store', 'cableStore')->name('cable.store');
+        Route::post('cable/update/{id}', 'cableUpdate')->name('cable.update');
+        Route::get('cable/delete/{id}','cableDelete')->name('cable.delete');
+        
+        //Power
+        Route::get('electricity', 'managePower')->name('power');
+        Route::post('power/store', 'powerStore')->name('power.store');
+        Route::post('power/update/{id}', 'powerUpdate')->name('power.update');
+        Route::get('power/delete/{id}','powerDelete')->name('power.delete');
+    });
 
     // Fees & Charges Section
     Route::controller(TrxSettingsController::class)->prefix('trx-settings')->name('trx.settings.')->group(function () {
