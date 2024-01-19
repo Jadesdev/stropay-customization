@@ -22,6 +22,8 @@ use App\Traits\PaymentGateway\Stripe;
 use App\Traits\PaymentGateway\Manual;
 use App\Models\Admin\BasicSettings;
 use App\Models\Admin\CryptoTransaction;
+use App\Models\Merchants\Merchant;
+use App\Models\User;
 use App\Models\UserNotification;
 use App\Traits\PaymentGateway\FlutterwaveTrait;
 use App\Traits\PaymentGateway\SslcommerzTrait;
@@ -30,6 +32,9 @@ use App\Traits\PaymentGateway\MonnifyTrait;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Events\User\NotificationEvent as UserNotificationEvent;
+use App\Models\Merchants\MerchantNotification;
+use Jenssegers\Agent\Agent;
 use Str;
 use KingFlamez\Rave\Facades\Rave as Flutterwave;
 
@@ -486,5 +491,279 @@ class AddMoneyController extends Controller
         }
 
         return back()->with(['success' => [__('Payment Confirmation Success')]]);
+    }
+
+    public function monnifyWebhookNotification(Request $request){
+        $input = $request->all();
+        $data = [
+			'paymentReference' => $input['eventData']['paymentReference']
+		];
+		$gateway = PaymentGateway::where('type',"AUTOMATIC")->where('alias','monnify')->first();
+        $d['gateway'] = $gateway;
+        $credentials = $this->getMonnifyCredentials($d);
+        $response = $this->verifyMonnifyWebhook($data, $credentials);
+        if($response['responseMessage'] == 'success' && $response['responseBody']['paymentStatus'] == "PAID"){
+            if($input['eventData']['paymentMethod'] == "ACCOUNT_TRANSFER"){
+                $details['amount'] = $input['eventData']['amountPaid'];
+                $details['reference'] = $input['eventData']['product']['reference'];
+                $details['final'] = $input['eventData']['settlementAmount'];
+                
+                return $this->complete_monnifyWebhok($details, $response = null);
+                
+                return ['status' => 'success'];
+            }
+        }else{
+            return ['status' => 'error'];
+        }
+        return $request->all();
+    }
+    
+    function complete_monnifyWebhok($details, $response = null){
+        
+        $user = User::where('monnify_ref', $details['reference'])->first();
+        if($user != null){
+            return $this->complete_userMonnifyWebhok($user, $details, $response = null);
+        }
+        //try merchant
+        $merchant = Merchant::where('monnify_ref', $details['reference'])->first();
+        if($merchant != null){
+            return $this->complete_merchantMonnifyWebhok($merchant, $details, $response = null);
+        }
+        return ['error' => 'No user found'];
+    }
+
+    function complete_userMonnifyWebhok($user, $details, $response = null){
+        
+        $userWallet = $user->wallet;
+        // add user balance and create trx
+        $fee = '1.6';
+        $charge = ($fee * $details['amount'])/100;
+        $amount = $details['amount'] - $charge;
+        DB::beginTransaction();
+        try{
+            $trx_id = 'AM'.getTrxNum();
+            // Add money
+            $id = DB::table("transactions")->insertGetId([
+                'user_id'                       => $user->id,
+                'user_wallet_id'                => $userWallet->id,
+                'payment_gateway_currency_id'   => '34',
+                'type'                          => "ADD-MONEY",
+                'trx_id'                        => $trx_id,
+                'request_amount'                => $details['amount'],
+                'payable'                       => $amount,
+                'available_balance'             => $userWallet->balance + $amount,
+                'remark'                        => "Bank Account Deposits Successful.",
+                'details'                       => 'Bank Account Deposits',
+                'status'                        => true,
+                'created_at'                    => now(),
+            ]);
+            
+            $update_amount = $userWallet->balance + $amount;
+
+            $userWallet->update([
+                'balance'   => $update_amount,
+            ]);
+
+            DB::commit();
+            
+        }catch(Exception $e) {
+            DB::rollBack();
+            //return ['status' => 'error'];
+            throw new Exception($e->getMessage());
+        }
+        // Add Charges
+        DB::beginTransaction();
+        try{
+            DB::table('transaction_charges')->insert([
+                'transaction_id'    => $id,
+                'percent_charge'    =>1.5,
+                'fixed_charge'      => 0,
+                'total_charge'      => $charge,
+                'created_at'        => now(),
+            ]);
+            DB::commit();
+
+            //notification
+            $notification_content = [
+                'title'         => "Add Money",
+                'message'       => "Your Wallet (".$userWallet->currency->code.") balance  has been added ".$amount.' '. $userWallet->currency->code,
+                'time'          => Carbon::now()->diffForHumans(),
+                'image'         => get_image($user->image,'user-profile'),
+            ];
+
+            UserNotification::create([
+                'type'      => NotificationConst::BALANCE_ADDED,
+                'user_id'  =>  $user->id,
+                'message'   => $notification_content,
+            ]);
+
+             //Push Notifications
+             event(new UserNotificationEvent($notification_content,$user));
+             send_push_notification(["user-".$user->id],[
+                 'title'     => $notification_content['title'],
+                 'body'      => $notification_content['message'],
+                 'icon'      => $notification_content['image'],
+             ]);
+
+            //admin notification
+             $notification_content['title'] = 'Add Money '.$amount.' NGN '.' By  ('.$user->username.')';
+            AdminNotification::create([
+                'type'      => NotificationConst::BALANCE_ADDED,
+                'admin_id'  => 1,
+                'message'   => $notification_content,
+            ]);
+            DB::commit();
+        }catch(Exception $e) {
+            DB::rollBack();
+            throw new Exception($e->getMessage());
+        }
+        //Add Device Info
+        $client_ip = request()->ip() ?? false;
+        $location = geoip()->getLocation($client_ip);
+        $agent = new Agent();
+
+        // $mac = exec('getmac');
+        // $mac = explode(" ",$mac);
+        // $mac = array_shift($mac);
+        $mac = "";
+
+        DB::beginTransaction();
+        try{
+            DB::table("transaction_devices")->insert([
+                'transaction_id'=> $id,
+                'ip'            => $client_ip,
+                'mac'           => $mac,
+                'city'          => $location['city'] ?? "",
+                'country'       => $location['country'] ?? "",
+                'longitude'     => $location['lon'] ?? "",
+                'latitude'      => $location['lat'] ?? "",
+                'timezone'      => $location['timezone'] ?? "",
+                'browser'       => $agent->browser() ?? "",
+                'os'            => $agent->platform() ?? "",
+            ]);
+            DB::commit();
+        }catch(Exception $e) {
+            DB::rollBack();
+            throw new Exception($e->getMessage());
+        }
+
+        return ['status' => 'success'];
+    }
+    
+    function complete_merchantMonnifyWebhok($merchant, $details, $response = null){
+        
+        $userWallet = $merchant->wallet;
+        // add user balance and create trx
+        $fee = '1.6';
+        $charge = ($fee * $details['amount'])/100;
+        $amount = $details['amount'] - $charge;
+        DB::beginTransaction();
+        try{
+            $trx_id = 'AM'.getTrxNum();
+            // Add money
+            $id = DB::table("transactions")->insertGetId([
+                'merchant_id'                       => $merchant->id,
+                'merchant_wallet_id'                => $userWallet->id,
+                'payment_gateway_currency_id'   => '34',
+                'type'                          => "ADD-MONEY",
+                'trx_id'                        => $trx_id,
+                'request_amount'                => $details['amount'],
+                'payable'                       => $amount,
+                'available_balance'             => $userWallet->balance + $amount,
+                'remark'                        => "Bank Account Deposits Successful.",
+                'details'                       => 'Bank Account Deposits',
+                'status'                        => true,
+                'created_at'                    => now(),
+            ]);
+            
+            $update_amount = $userWallet->balance + $amount;
+
+            $userWallet->update([
+                'balance'   => $update_amount,
+            ]);
+
+            DB::commit();
+            
+        }catch(Exception $e) {
+            DB::rollBack();
+            //return ['status' => 'error'];
+            throw new Exception($e->getMessage());
+        }
+        // Add Charges
+        DB::beginTransaction();
+        try{
+            DB::table('transaction_charges')->insert([
+                'transaction_id'    => $id,
+                'percent_charge'    =>1.5,
+                'fixed_charge'      => 0,
+                'total_charge'      => $charge,
+                'created_at'        => now(),
+            ]);
+            DB::commit();
+
+            //notification
+            $notification_content = [
+                'title'         => "Add Money",
+                'message'       => "Your Wallet (".$userWallet->currency->code.") balance  has been added ".$amount.' '. $userWallet->currency->code,
+                'time'          => Carbon::now()->diffForHumans(),
+                'image'         => get_image($merchant->image,'user-profile'),
+            ];
+
+            MerchantNotification::create([
+                'type'      => NotificationConst::BALANCE_ADDED,
+                'merchant_id'  => $userWallet->merchant->id,
+                'message'   => $notification_content,
+            ]);
+            event(new NotificationEvent($notification_content,$merchant));
+           
+            send_push_notification(["merchant-".$merchant->id],[
+                 'title'     => $notification_content['title'],
+                 'body'      => $notification_content['message'],
+                 'icon'      => $notification_content['image'],
+             ]);
+
+            //admin notification
+            $notification_content['title'] = 'Add Money '.$amount.' NGN '.' By  ('.$merchant->username.')';
+            AdminNotification::create([
+                'type'      => NotificationConst::BALANCE_ADDED,
+                'admin_id'  => 1,
+                'message'   => $notification_content,
+            ]);
+            DB::commit();
+        }catch(Exception $e) {
+            DB::rollBack();
+            throw new Exception($e->getMessage());
+        }
+        //Add Device Info
+        $client_ip = request()->ip() ?? false;
+        $location = geoip()->getLocation($client_ip);
+        $agent = new Agent();
+
+        // $mac = exec('getmac');
+        // $mac = explode(" ",$mac);
+        // $mac = array_shift($mac);
+        $mac = "";
+
+        DB::beginTransaction();
+        try{
+            DB::table("transaction_devices")->insert([
+                'transaction_id'=> $id,
+                'ip'            => $client_ip,
+                'mac'           => $mac,
+                'city'          => $location['city'] ?? "",
+                'country'       => $location['country'] ?? "",
+                'longitude'     => $location['lon'] ?? "",
+                'latitude'      => $location['lat'] ?? "",
+                'timezone'      => $location['timezone'] ?? "",
+                'browser'       => $agent->browser() ?? "",
+                'os'            => $agent->platform() ?? "",
+            ]);
+            DB::commit();
+        }catch(Exception $e) {
+            DB::rollBack();
+            throw new Exception($e->getMessage());
+        }
+
+        return ['status' => 'success'];
     }
 }
