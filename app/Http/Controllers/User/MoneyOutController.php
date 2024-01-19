@@ -182,7 +182,7 @@ class MoneyOutController extends Controller
        curl_close($ch);
         return back()->with(['error' => ["Invalid request,please try again later"]]);
        
-   }
+    }
 
    public function paymentInsert(Request $request){
         $request->validate([

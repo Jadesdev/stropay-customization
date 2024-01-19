@@ -90,6 +90,10 @@
                                     <label for="narration">{{ __("Narration") }} <span class="text-danger"></span></label>
                                     <input type="text" class="form--control " minlength="5" id="narration" value="{{ old('narration') }}" name="narration" placeholder="Narration" required>
                                 </div>
+                                <div class="col-lg-12 form-group " id="">
+                                    <label for="pin">{{ __("PIN") }} <span class="text-danger"></span></label>
+                                    <input type="password" class="form--control " maxlength="4" id="pin" name="pin" placeholder="Trx PIN" required>
+                                </div>
                                 <div class="col-xl-12 col-lg-12 form-group">
                                     <div class="note-area">
                                         <code class="d-block limit-show">--</code>
@@ -388,11 +392,11 @@
                     _token:"{{ csrf_token() }}"
                 }
                 jQuery.ajax({
-                    url: "{{setRoute('user.money.out.transfer.validate')}}",
+                    url: "{{setRoute('merchant.withdraw.transfer.validate')}}",
                     data: postObj,
                     type: "POST",
                     success: function (res) {
-                        // console.log(res);
+                        console.log(res);
                         if (res.status === "success") {
                             accName.val(res.data.account_name);
                             subBtn.prop('disabled', false);
