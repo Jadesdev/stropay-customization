@@ -107,4 +107,30 @@ class ProfileController extends Controller
         return back()->with(['success' => [__('Password successfully updated!')]]);
 
     }
+
+    public function pinUpdate(Request $request) {
+        $basic_settings = BasicSettingsProvider::get();
+        
+        $request->validate([
+            'current_pin'      => "required|digits:4",
+            'pin'              => "required|digits:4",
+        ]);
+
+        if($request->current_pin != auth()->user()->trx) {
+            throw ValidationException::withMessages([
+                'current_pin'      => 'Current PIN didn\'t match',
+            ]);
+        }
+
+        try{
+            auth()->user()->update([
+                'trx'  => ($request->pin),
+            ]);
+        }catch(Exception $e) {
+            return back()->with(['error' => [__("Something went wrong! Please try again.")]]);
+        }
+
+        return back()->with(['success' => [__('Transaction PIN successfully updated!')]]);
+
+    }
 }

@@ -176,6 +176,39 @@
                         </form>
                     </div>
                 </div>
+
+                <div class="custom-card mt-10">
+                    <div class="dashboard-header-wrapper">
+                        <h4 class="title">{{ __("Transaction Pin") }}</h4>
+                    </div>
+                    <div class="card-body">
+                        <form class="card-form" action="{{ setRoute('user.profile.pin.update') }}" method="POST">
+                            @csrf
+                            @method("PUT")
+                            <div class="row">
+                                <div class="col-xl-12 col-lg-12 form-group">
+                                    @include('admin.components.form.input',[
+                                    'label'     => "Current PIN <span>*</span>",
+                                    'name'      => "current_pin",
+                                    'type'      => "number",
+                                    'placeholder'   => "Current PIN (default is 1234)",
+                                ])
+                                </div>
+                                <div class="col-xl-12 col-lg-12 form-group ">
+                                    @include('admin.components.form.input',[
+                                    'label'     => "New PIN<span>*</span>",
+                                    'name'      => "pin",
+                                    'type'      => "number",
+                                    'placeholder'   => "Enter PIN...",
+                                ])
+                                </div>
+                            </div>
+                            <div class="col-xl-12 col-lg-12">
+                                <button type="submit" class="btn--base w-100 btn-loading">{{ __("Change") }}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
                 @include('user.components.profile.kyc',compact("kyc_data"))
             </div>
         </div>

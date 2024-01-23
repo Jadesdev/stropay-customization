@@ -26,6 +26,7 @@ Route::prefix("merchant")->name("merchant.")->group(function(){
     //profile
     Route::controller(ProfileController::class)->prefix("profile")->name("profile.")->middleware('app.mode')->group(function(){
         Route::get('/','index')->name('index');
+        Route::put('pin/update','pinUpdate')->name('pin.update');
         Route::put('password/update','passwordUpdate')->name('password.update');
         Route::put('update','update')->name('update');
         Route::delete('delete/account','deleteAccount')->name('delete.account');
